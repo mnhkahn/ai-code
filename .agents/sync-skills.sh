@@ -9,6 +9,7 @@ PROJECT_SKILLS="$SCRIPT_DIR/skills"
 
 # User-level skill directories (in priority order)
 USER_DIRS=(
+  "$HOME/.claude/skills"
   "$HOME/.trae/skills"
   "$HOME/.coco/skills"
   "$HOME/.trae-cn/skills"
