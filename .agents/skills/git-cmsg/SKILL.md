@@ -122,7 +122,7 @@ Flag staged files matching any of these patterns:
 4. git diff --cached               → Detailed diff (after any file removals)
 5. Analyze: type + scope + subject + body
 6. ⚠️ MUST STOP: 使用 AskUserQuestion 工具展示生成的 commit message 并等待用户确认
-   - question: "生成的提交信息是否符合要求？"
+   - question: "生成的提交信息是否符合要求？\n\n提交信息预览：\n```\n{commit_message}\n```"
    - header: "提交信息确认"
    - options: [
        { label: "确认提交", description: "使用此提交信息进行提交" },
