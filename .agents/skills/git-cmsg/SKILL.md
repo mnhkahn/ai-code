@@ -126,6 +126,7 @@ Flag staged files matching any of these patterns:
    - header: "提交信息确认"
    - options: [
        { label: "确认提交", description: "使用此提交信息进行提交" },
+       { label: "提交并推送", description: "使用此提交信息进行提交并直接 push 到远程仓库" },
        { label: "重新生成", description: "重新分析代码变更并生成新的提交信息" },
        { label: "取消操作", description: "取消当前提交操作" }
      ]
