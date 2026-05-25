@@ -1,6 +1,6 @@
 ---
 name: git-cmsg
-description: Use when generating Git commit messages, writing commit messages, committing code, or when the user mentions commit、提交、commit message、提交信息. Generates Conventional Commits format messages in Chinese, commits but does not push.
+description: Use when generating Git commit messages, writing commit messages, committing code, or when the user mentions commit、提交、commit message、提交信息. Generates Conventional Commits format messages in Chinese and requires explicit confirmation before committing.
 argument-hint: "[--dry-run]"
 allowed-tools: AskUserQuestion, Bash
 ---
@@ -56,6 +56,17 @@ Closes #<issue>
 6. **Do NOT include HOW details** (implementation specifics) in the message.
 7. **Commit but do NOT push.** Run `git commit` only. Never `git push`.
 8. **必须等待用户确认。** 生成 commit message 后，展示给用户并等待明确同意。用户未回复前禁止执行 `git commit`。如果用户提出修改意见，按意见调整后再次展示确认。
+9. **Use the current agent's question tool.** Claude Code should use `AskUserQuestion`. Codex should use `request_user_input` when that tool is listed, available, and permitted in the current mode. If no structured question tool is available or the tool call fails, ask the same question in plain text and wait for the user's reply.
+
+## Decision UI
+
+For every user decision in this skill, use this order:
+
+1. **Claude Code:** use `AskUserQuestion` with the listed `question`, `header`, and `options`.
+2. **Codex:** use `request_user_input` with one question object. Include `header`, a stable snake_case `id`, `question`, and 2-3 options. Put the recommended option first and suffix its label with `(Recommended)`.
+3. **Fallback:** if the current agent does not expose either structured question tool, or the tool is unavailable, not permitted, or fails, ask the same options as plain text. Do not continue until the user clearly chooses an option.
+
+Never invent a tool name that is not available in the current runtime. Never offer a push option; this skill commits only.
 
 ## Pre-commit File Check
 
@@ -82,20 +93,22 @@ Flag staged files matching any of these patterns:
 2. Match against detection rules
 3. If suspicious files found:
    a. List them with reasons
-   b. Use AskUserQuestion to ask: remove from staging, or confirm intentional commit
-      - question: "发现可疑文件，是否继续提交？"
+   b. Use Decision UI to ask: remove from staging, or confirm intentional commit
+      - question: "发现可能不应提交的文件，要怎么处理？"
       - header: "可疑文件处理"
+      - id: "suspicious_file_action"
       - options: [
-          { label: "继续提交", description: "确认这些文件是故意提交的" },
           { label: "移除文件", description: "从暂存区移除这些文件，但保留在工作区" },
+          { label: "继续提交", description: "确认这些文件是故意提交的" },
           { label: "取消操作", description: "取消当前提交操作" }
         ]
    c. If patterns suggest missing .gitignore:
       - Check if .gitignore exists and already covers these patterns
       - If not covered, propose .gitignore additions
-      - Use AskUserQuestion to ask: whether to create/update .gitignore
+      - Use Decision UI to ask: whether to create/update .gitignore
         - question: "是否要创建/更新 .gitignore 文件？"
         - header: "Git忽略文件"
+        - id: "gitignore_action"
         - options: [
             { label: "创建/更新", description: "创建或更新 .gitignore 文件以忽略这些模式" },
             { label: "不处理", description: "不创建/更新 .gitignore 文件" },
@@ -121,12 +134,12 @@ Flag staged files matching any of these patterns:
    ⚠️ 如果发现可疑文件，MUST STOP 等待用户决定后才能继续
 4. git diff --cached               → Detailed diff (after any file removals)
 5. Analyze: type + scope + subject + body
-6. ⚠️ MUST STOP: 使用 AskUserQuestion 工具展示生成的 commit message 并等待用户确认
+6. ⚠️ MUST STOP: 使用 Decision UI 展示生成的 commit message 并等待用户确认
    - question: "生成的提交信息是否符合要求？\n\n提交信息预览：\n```\n{commit_message}\n```"
    - header: "提交信息确认"
+   - id: "commit_message_action"
    - options: [
        { label: "确认提交", description: "使用此提交信息进行提交" },
-       { label: "提交并推送", description: "使用此提交信息进行提交并直接 push 到远程仓库" },
        { label: "重新生成", description: "重新分析代码变更并生成新的提交信息" },
        { label: "取消操作", description: "取消当前提交操作" }
      ]
