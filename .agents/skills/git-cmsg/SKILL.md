@@ -54,6 +54,7 @@ Closes #<issue>
 5. **Body:** Chinese, explain WHY the change was made. Use numbered list for multiple changes. One change per line.
 6. **Do NOT include HOW details** (implementation specifics) in the message.
 7. **Commit but do NOT push.** Run `git commit` only. Never `git push`.
+8. **必须等待用户确认。** 生成 commit message 后，展示给用户并等待明确同意。用户未回复前禁止执行 `git commit`。如果用户提出修改意见，按意见调整后再次展示确认。
 
 ## Pre-commit File Check
 
@@ -102,10 +103,11 @@ Flag staged files matching any of these patterns:
 1. git diff --cached --stat        → Overview of changes
 2. git diff --cached --name-only   → Staged file list
 3. Pre-commit file check           → Detect suspicious files, handle .gitignore
+   ⚠️ 如果发现可疑文件，MUST STOP 等待用户决定后才能继续
 4. git diff --cached               → Detailed diff (after any file removals)
 5. Analyze: type + scope + subject + body
-6. Present message to user for confirmation
-7. git commit -m "<message>"       → Execute commit
+6. ⚠️ MUST STOP: 将生成的 commit message 展示给用户，等待用户明确确认或修改意见后才能继续。绝对不允许跳过此步骤。
+7. git commit -m "<message>"       → Execute commit (only after user confirms)
 8. Show git log -1 --oneline       → Confirm result
 ```
 
