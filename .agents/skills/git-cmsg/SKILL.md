@@ -2,6 +2,7 @@
 name: git-cmsg
 description: Use when generating Git commit messages, writing commit messages, committing code, or when the user mentions commit、提交、commit message、提交信息. Generates Conventional Commits format messages in Chinese, commits but does not push.
 argument-hint: "[--dry-run]"
+allowed-tools: AskUserQuestion, Bash
 ---
 
 # Git Commit Message Generator
@@ -81,11 +82,25 @@ Flag staged files matching any of these patterns:
 2. Match against detection rules
 3. If suspicious files found:
    a. List them with reasons
-   b. Ask user: remove from staging, or confirm intentional commit
+   b. Use AskUserQuestion to ask: remove from staging, or confirm intentional commit
+      - question: "发现可疑文件，是否继续提交？"
+      - header: "可疑文件处理"
+      - options: [
+          { label: "继续提交", description: "确认这些文件是故意提交的" },
+          { label: "移除文件", description: "从暂存区移除这些文件，但保留在工作区" },
+          { label: "取消操作", description: "取消当前提交操作" }
+        ]
    c. If patterns suggest missing .gitignore:
       - Check if .gitignore exists and already covers these patterns
       - If not covered, propose .gitignore additions
-      - Ask user whether to create/update .gitignore
+      - Use AskUserQuestion to ask: whether to create/update .gitignore
+        - question: "是否要创建/更新 .gitignore 文件？"
+        - header: "Git忽略文件"
+        - options: [
+            { label: "创建/更新", description: "创建或更新 .gitignore 文件以忽略这些模式" },
+            { label: "不处理", description: "不创建/更新 .gitignore 文件" },
+            { label: "取消操作", description: "取消当前提交操作" }
+          ]
    d. After user decision, proceed with remaining staged files
 4. If no suspicious files, proceed normally
 ```
@@ -106,7 +121,14 @@ Flag staged files matching any of these patterns:
    ⚠️ 如果发现可疑文件，MUST STOP 等待用户决定后才能继续
 4. git diff --cached               → Detailed diff (after any file removals)
 5. Analyze: type + scope + subject + body
-6. ⚠️ MUST STOP: 将生成的 commit message 展示给用户，等待用户明确确认或修改意见后才能继续。绝对不允许跳过此步骤。
+6. ⚠️ MUST STOP: 使用 AskUserQuestion 工具展示生成的 commit message 并等待用户确认
+   - question: "生成的提交信息是否符合要求？"
+   - header: "提交信息确认"
+   - options: [
+       { label: "确认提交", description: "使用此提交信息进行提交" },
+       { label: "重新生成", description: "重新分析代码变更并生成新的提交信息" },
+       { label: "取消操作", description: "取消当前提交操作" }
+     ]
 7. git commit -m "<message>"       → Execute commit (only after user confirms)
 8. Show git log -1 --oneline       → Confirm result
 ```
