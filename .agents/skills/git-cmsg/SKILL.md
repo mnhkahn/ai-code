@@ -1,7 +1,6 @@
 ---
 name: git-cmsg
 description: Use when generating Git commit messages, writing commit messages, committing code, or when the user mentions commit、提交、commit message、提交信息. Generates Conventional Commits format messages in Chinese and requires explicit confirmation before committing.
-argument-hint: "[--dry-run]"
 allowed-tools: AskUserQuestion, Bash
 ---
 
@@ -185,9 +184,6 @@ fix: 修复了一些问题
 ```
 (vague, no real information)
 
-## Dry Run
-
-If `--dry-run` is specified, only show the generated message. Do not execute `git commit`.
 
 ## Edge Cases
 
