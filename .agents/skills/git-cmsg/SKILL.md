@@ -66,7 +66,7 @@ For every user decision in this skill, use this order:
 2. **Codex:** use `request_user_input` with one question object. Include `header`, a stable snake_case `id`, `question`, and 2-3 options. Put the recommended option first and suffix its label with `(Recommended)`.
 3. **Fallback:** if the current agent does not expose either structured question tool, or the tool is unavailable, not permitted, or fails, ask the same options as plain text. Do not continue until the user clearly chooses an option.
 
-Never invent a tool name that is not available in the current runtime. Never offer a push option; this skill commits only.
+Never invent a tool name that is not available in the current runtime.
 
 ## Pre-commit File Check
 
@@ -139,12 +139,14 @@ Flag staged files matching any of these patterns:
    - header: "提交信息确认"
    - id: "commit_message_action"
    - options: [
+       { label: "提交并推送", description: "使用此提交信息进行提交并直接 push 到远程仓库" },
        { label: "确认提交", description: "使用此提交信息进行提交" },
        { label: "重新生成", description: "重新分析代码变更并生成新的提交信息" },
        { label: "取消操作", description: "取消当前提交操作" }
      ]
 7. git commit -m "<message>"       → Execute commit (only after user confirms)
-8. Show git log -1 --oneline       → Confirm result
+8. If user chose "提交并推送": git push  → Execute push (only after commit is successful)
+9. Show git log -1 --oneline       → Confirm result
 ```
 
 ## Subject Examples
