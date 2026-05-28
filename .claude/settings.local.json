@@ -1,0 +1,40 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "WebFetch",
+      "Read",
+      "Write",
+      "Edit",
+      "Skill(git-cmsg)",
+      "Bash(git config *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git push *)",
+      "Bash(git status *)",
+      "Bash(git diff *)",
+      "Bash(git log *)",
+      "Bash(git branch *)",
+      "Bash(./.agents/sync-skills.sh *)",
+      "Bash(/Users/bytedance/code/ai-code/.agents/sync-skills.sh *)",
+      "Bash(claude *)",
+      "Bash(claude help *)",
+      "Bash(lark-cli *)",
+      "Bash(lark-cli wiki *)",
+      "Bash(find *)",
+      "Bash(grep *)",
+      "Bash(ls -la *)",
+      "Bash(ls -laR *)",
+      "Bash(ls *)",
+      "Bash(xargs *)",
+      "Bash(jq *)",
+      "Bash(cat *)",
+      "Bash(head *)",
+      "Bash(tail *)",
+      "Bash(env)",
+      "Bash(which *)",
+      "Bash(mkdir -p *)",
+      "Bash(git check-ignore *)"
+    ]
+  }
+}
