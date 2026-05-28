@@ -25,6 +25,7 @@ Format:
 
 BREAKING CHANGE: <description>
 Closes #<issue>
+Co-authored-by: {model_name} <{model_email}>
 ```
 
 **All text must be in Chinese** except type, scope, and special tokens (BREAKING CHANGE, Closes).
@@ -133,7 +134,35 @@ Flag staged files matching any of these patterns:
    ⚠️ 如果发现可疑文件，MUST STOP 等待用户决定后才能继续
 4. git diff --cached               → Detailed diff (after any file removals)
 5. Analyze: type + scope + subject + body
-6. ⚠️ MUST STOP: 使用 Decision UI 展示生成的 commit message 并等待用户确认
+6. Add Co-authored-by trailer (fallback chain: model → client → omit):
+   a. **Detect model name** (priority: `~/.trae/traecli.yaml` → `model.name` field → `$ANTHROPIC_MODEL` env → self-identify from system prompt)
+   b. **If model name starts with "ark-"**, prefer `traecli.yaml` → `model.name` as the actual model name
+   c. **Infer provider** from model name prefix (see Provider Mapping below)
+   d. **If no prefix match**, infer provider from `$ANTHROPIC_BASE_URL` domain (see Base URL Fallback below)
+   e. **If still unresolved**, omit the Co-authored-by line entirely — never use "Unknown"
+   g. Format: `Co-authored-by: {model_name} ({provider}) <noreply@{provider_domain}>`
+
+   Provider Mapping:
+   | Prefix/Keyword        | Provider         | Domain              |
+   |-----------------------|------------------|---------------------|
+   | glm-*, GLM-*          | Zhipu AI         | zhipuai.cn          |
+   | claude-*, Claude*     | Anthropic        | anthropic.com       |
+   | gpt-*, o1-*, o3-*     | OpenAI           | openai.com          |
+   | deepseek-*            | DeepSeek         | deepseek.com        |
+   | qwen-*, Qwen*         | Alibaba Cloud    | alibabacloud.com    |
+   | doubao-*              | ByteDance        | bytedance.com       |
+   | llama-*, Llama*       | Meta             | meta.com            |
+   | gemini-*, Gemini*     | Google           | google.com          |
+   | mistral-*, Mistral*   | Mistral AI       | mistral.ai          |
+
+   Base URL Fallback:
+   | Domain Pattern         | Provider         |
+   |------------------------|------------------|
+   | volces.com / ark.*     | ByteDance (ARK)  |
+   | anthropic.com          | Anthropic        |
+   | openai.com             | OpenAI           |
+   | deepseek.com           | DeepSeek         |
+7. ⚠️ MUST STOP: 使用 Decision UI 展示生成的 commit message 并等待用户确认
    - question: "生成的提交信息是否符合要求？\n\n提交信息预览：\n```\n{commit_message}\n```"
    - header: "提交信息确认"
    - id: "commit_message_action"
@@ -143,9 +172,9 @@ Flag staged files matching any of these patterns:
        { label: "重新生成", description: "重新分析代码变更并生成新的提交信息" },
        { label: "取消操作", description: "取消当前提交操作" }
      ]
-7. git commit -m "<message>"       → Execute commit (only after user confirms)
-8. If user chose "提交并推送": git push  → Execute push (only after commit is successful)
-9. Show git log -1 --oneline       → Confirm result
+8. git commit -m "<message>"       → Execute commit (only after user confirms)
+9. If user chose "提交并推送": git push  → Execute push (only after commit is successful)
+10. Show git log -1 --oneline       → Confirm result
 ```
 
 ## Subject Examples
@@ -173,6 +202,8 @@ refactor(handler): 优化指标打点逻辑并调整handleBinlogMessage参数
 2. 调整handleBinlogMessage签名，新增topic参数用于传递binlog主题
 3. 统一所有指标打点的标签格式，补充binlog主题、失败原因等维度信息
 4. 调整日志和指标打点的关联逻辑，移除重复的指标调用
+
+Co-authored-by: GLM-5.1 (Zhipu AI) <noreply@zhipuai.cn>
 ```
 
 Bad:
