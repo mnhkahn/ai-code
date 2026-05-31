@@ -9,6 +9,7 @@ PROJECT_SKILLS="$SCRIPT_DIR/skills"
 
 # User-level skill directories (in priority order)
 USER_DIRS=(
+  "$HOME/.config/opencode/skills"
   "$HOME/.claude/skills"
   "$HOME/.trae/skills"
   "$HOME/.coco/skills"
@@ -22,6 +23,11 @@ fi
 
 synced=0
 for dir in "${USER_DIRS[@]}"; do
+  # Create directory if it doesn't exist yet
+  if [ ! -d "$dir" ]; then
+    mkdir -p "$dir"
+    echo "Created $dir"
+  fi
   if [ -d "$dir" ]; then
     for skill_dir in "$PROJECT_SKILLS"/*/; do
       skill_name="$(basename "$skill_dir")"
@@ -34,8 +40,6 @@ for dir in "${USER_DIRS[@]}"; do
       echo "Linked $skill_name -> $target"
       synced=$((synced + 1))
     done
-  else
-    echo "Skip $dir (not found)"
   fi
 done
 
