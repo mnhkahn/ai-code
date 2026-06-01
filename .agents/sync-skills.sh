@@ -12,8 +12,8 @@ USER_DIRS=(
   "$HOME/.config/opencode/skills"
   "$HOME/.claude/skills"
   "$HOME/.trae/skills"
-  "$HOME/.coco/skills"
   "$HOME/.trae-cn/skills"
+  "$HOME/.codex/skills"
 )
 
 if [ ! -d "$PROJECT_SKILLS" ]; then
