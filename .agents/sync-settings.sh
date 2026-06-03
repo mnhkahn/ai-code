@@ -1,27 +1,15 @@
 #!/usr/bin/env bash
-# Sync project-level .claude/settings.local.json into user-level ~/.claude/settings.json
-# Merges permissions.allow/deny arrays (deduped), preserves existing user config.
+# Sync project-level settings into user-level config directories.
+# Supports both Claude Code (.claude/settings.local.json -> ~/.claude/settings.json)
+# and Open Code (opencode.json -> ~/.config/opencode/opencode.json).
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-PROJECT_SETTINGS="$SCRIPT_DIR/../.claude/settings.local.json"
-USER_SETTINGS="$HOME/.claude/settings.json"
 
-if [ ! -f "$PROJECT_SETTINGS" ]; then
-  echo "Error: $PROJECT_SETTINGS not found"
-  exit 1
-fi
-
-if [ ! -f "$USER_SETTINGS" ]; then
-  echo "No user settings found, copying project settings as base"
-  mkdir -p "$(dirname "$USER_SETTINGS")"
-  cp "$PROJECT_SETTINGS" "$USER_SETTINGS"
-  echo "Done. Created $USER_SETTINGS"
-  exit 0
-fi
-
-python3 - "$PROJECT_SETTINGS" "$USER_SETTINGS" <<'PYEOF'
+merge_json() {
+  local src="$1" dst="$2"
+  python3 - "$src" "$dst" <<'PYEOF'
 import json, sys
 
 proj_path, user_path = sys.argv[1], sys.argv[2]
@@ -100,3 +88,27 @@ if changed:
 else:
     print("Nothing to merge, user config is up to date.")
 PYEOF
+}
+
+sync_one() {
+  local src="$1" dst="$2" label="$3"
+
+  if [ ! -f "$src" ]; then
+    echo "Skip $label: $src not found"
+    return
+  fi
+
+  echo "=== $label ==="
+  mkdir -p "$(dirname "$dst")"
+
+  if [ ! -f "$dst" ]; then
+    cp "$src" "$dst"
+    echo "Created $dst"
+    return
+  fi
+
+  merge_json "$src" "$dst"
+}
+
+sync_one "$SCRIPT_DIR/../.claude/settings.local.json" "$HOME/.claude/settings.json" "Claude Code"
+sync_one "$SCRIPT_DIR/../opencode.json" "$HOME/.config/opencode/opencode.json" "Open Code"
