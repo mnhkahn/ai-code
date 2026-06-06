@@ -77,6 +77,109 @@ You have superpowers.
 </EXTREMELY_IMPORTANT>
 ```
 
+### 2.4 注入机制：stdout JSON 契约
+
+上一节留了一个关键问题没说透：**hook 子进程退出后，它的输出是怎么变成 system prompt 的？** 没有常驻连接、没有共享内存、没有回调函数——hook 只是一次同步子进程调用。
+
+完整机制：
+
+```
+SessionStart 事件触发
+  ↓
+Claude Code fork 子进程执行 hooks.json 里配置的 command
+  ↓
+子进程把 JSON 写到 stdout 后退出（exit 0）
+  ↓
+Claude Code 读取 stdout，按 JSON schema 解析
+  ↓
+识别 hookSpecificOutput.additionalContext 字段
+  ↓
+把这个字符串拼接到新会话的 system prompt（harness 内部决定拼头部/尾部）
+  ↓
+会话开始
+```
+
+**真正干"插入"动作的是 Claude Code 自己，不是 hook 脚本。** Hook 只是个信使，stdout 就是信的内容。Superpowers 写的 `session-start` bash 脚本本质是：**按 SessionStart 事件的 JSON schema 严格格式化一段字符串，输出到 stdout。** 之后的事 harness 处理。
+
+#### 2.4.1 additionalContext 永远追加，不挑食
+
+对 SessionStart 这个事件，**`additionalContext` 永远会被追加进 system prompt**——harness 不会判断"这段值不值得注入"，看到字段就拼。具体行为：
+
+- **每个事件匹配都注入一次**：`startup|clear|compact` 命中一次，脚本跑一次，stdout 拼一次
+- **多 hook 都注入**：同一事件注册多个 hook，每个 hook 输出的 `additionalContext` **都会被追加**，harness 不做去重也不做排序，简单拼接
+- **不可撤回**：进了 system prompt 就是 prompt 的一部分，agent 自己不能删除或修改。`<EXTREMELY_IMPORTANT>` 标签只是给 LLM 看的"权重提示"，不是真系统级保护——但 LLM 会当真
+
+整套机制能成立就建立在这个"机械式契约"上：Claude Code 不挑食、不判断、看到字段就拼。
+
+#### 2.4.2 关键陷阱：harness 不做字段去重
+
+这是 `session-start` 脚本注释里专门警告的坑：
+
+```bash
+# Claude Code reads BOTH additional_context and hookSpecificOutput without
+# deduplication, so we must emit only the field the current platform consumes.
+```
+
+意思是 Claude Code 同时识别**两种** schema：
+
+| 字段 | 谁用 |
+|---|---|
+| `additional_context`（snake_case） | Cursor |
+| `hookSpecificOutput.additionalContext`（嵌套） | Claude Code |
+| `additionalContext`（顶层） | Copilot CLI / SDK 标准 |
+
+**两个字段它都读、都拼、不去重。** 如果脚本同时输出 `additional_context` 和 `hookSpecificOutput.additionalContext`，agent 会看到**两遍** `<EXTREMELY_IMPORTANT>You have superpowers...`，不仅冗余还可能让 LLM 困惑。
+
+所以脚本里必须有 if/else 分支，严格只输出当前宿主该用的字段名：
+
+```bash
+if [ -n "${CURSOR_PLUGIN_ROOT:-}" ]; then
+  # Cursor → additional_context
+  printf '{\n  "additional_context": "%s"\n}\n' "$session_context"
+elif [ -n "${CLAUDE_PLUGIN_ROOT:-}" ] && [ -z "${COPILOT_CLI:-}" ]; then
+  # Claude Code → hookSpecificOutput.additionalContext
+  printf '{\n  "hookSpecificOutput": { ... } }\n' "$session_context"
+else
+  # Copilot CLI → additionalContext（SDK 标准）
+  printf '{\n  "additionalContext": "%s"\n}\n' "$session_context"
+fi
+```
+
+**字段去重是 hook 写作者的活，harness 不帮你擦屁股。**
+
+#### 2.4.3 跨平台 polyglot 的同款机制
+
+`run-hook.cmd` 是同一个模式的递归应用——
+
+```bash
+# Unix 分支
+exec bash "${SCRIPT_DIR}/${SCRIPT_NAME}" "$@"
+```
+
+父进程 `run-hook.cmd` 收到 `session-start` 参数，调子 bash 执行真正的脚本，把子 bash 的 stdout 透传回自己的 stdout。整条链路是**单向 IPC 管道**：
+
+```
+Claude Code → run-hook.cmd stdout → bash session-start stdout → Claude Code
+```
+
+`run-hook.cmd` 自己不产生 JSON，它只做"找到 bash 并把子进程的 stdout 透传"。这种 polyglot 设计保证了 Windows / Unix 走的是同一份 `session-start` 脚本，行为一致。
+
+#### 2.4.4 顺带：其他 hook 事件的契约
+
+Claude Code 的 hook 体系是一套**多事件多 schema** 的设计，不止 SessionStart 一招。每种事件有自己专属的 JSON schema，harness 按字段执行对应动作：
+
+| Hook 事件 | 触发时机 | stdout JSON 能干什么 |
+|---|---|---|
+| `SessionStart` | 会话启动/清空/压缩 | `additionalContext` 注入 system prompt |
+| `UserPromptSubmit` | 用户消息发送前 | 可注入上下文、追加信息 |
+| `PreToolUse` | 工具调用前 | `permissionDecision: deny` 拦截、修改工具参数 |
+| `PostToolUse` | 工具返回后 | 往工具结果里塞额外上下文 |
+| `Stop` | agent 尝试停下时 | `decision: block` 阻止停止（强制继续） |
+| `SubagentStop` | 子 agent 结束时 | 同 Stop |
+| `Notification` | 通知发出时 | 拦截/修改通知 |
+
+**这套契约就是"在不修改 Claude Code 源码的前提下扩展其行为"的完整接口。** Superpowers 只用了 SessionStart 一个事件；其他事件留出了大量未被开发的扩展空间——比如用 PreToolUse 拦截危险命令、用 Stop 强制 agent 完成自检流程。
+
 ---
 
 ## 三、与默认 Skill 加载的本质差异
